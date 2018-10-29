@@ -25,7 +25,7 @@
         [self setStreamSettings:@{
                                   @"security": @"none",
                                   @"tlsSettings": @{
-                                          @"serverName": @"server.cc",
+                                          @"serverName": @"",
                                           @"allowInsecure": [NSNumber numberWithBool:NO]
                                           },
                                   @"tcpSettings": @{
@@ -48,11 +48,10 @@
                                   @"wsSettings": @{
                                           @"path": @"",
                                           @"headers": @{
-                                                  @"Host": @"server.cc"
                                                   }
                                           },
                                   @"httpSettings": @{
-                                          @"host": @[@"server.cc"],
+                                          @"host": @[@""],
                                           @"path": @""
                                         }
                                   }];
@@ -99,6 +98,7 @@
         if (outboundJson[@"mux"] != nil) {
             profile.muxSettings = outboundJson[@"mux"];
         }
+        profile.subscribeServerURL = outboundJson[@"subscribeServerURL"];
         profile.sendThrough = sendThrough;
         [profiles addObject:profile];
     }
@@ -127,6 +127,7 @@
     aCopy.sendThrough = [NSString stringWithString:nilCoalescing(self.sendThrough, @"")];
     aCopy.streamSettings = [NSKeyedUnarchiver unarchiveObjectWithData:[NSKeyedArchiver archivedDataWithRootObject:self.streamSettings]];
     aCopy.muxSettings = [NSKeyedUnarchiver unarchiveObjectWithData:[NSKeyedArchiver archivedDataWithRootObject:self.muxSettings]];
+    aCopy.subscribeServerURL = [NSString stringWithString:nilCoalescing(self.subscribeServerURL, @"")];
     return aCopy;
 }
 
@@ -156,6 +157,7 @@
               } mutableCopy],
       @"streamSettings": fullStreamSettings,
       @"mux": muxSettings,
+      @"subscribeServerURL": subscribeServerURL ?: @"",
       };
     return [result mutableCopy];
 }
@@ -171,4 +173,5 @@
 @synthesize sendThrough;
 @synthesize muxSettings;
 @synthesize streamSettings;
+@synthesize subscribeServerURL;
 @end

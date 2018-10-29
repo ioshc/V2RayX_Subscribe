@@ -7,6 +7,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import "ServerProfile.h"
+#import "SubscribeServer.h"
 
 @interface ConfigWindowController : NSWindowController <NSTableViewDataSource, NSTableViewDelegate>
 - (IBAction)chooseNetwork:(NSPopUpButton *)sender;
@@ -27,6 +28,7 @@
 @property (weak) IBOutlet NSMenu *importFromJsonMenu;
 
 @property (weak) IBOutlet NSWindow* transportWindow;
+@property (weak) IBOutlet NSWindow* subscribeWindow;
 @property (weak) IBOutlet NSWindow* cusConfigWindow;
 
 //kcp fields
@@ -65,6 +67,12 @@
 @property (weak) IBOutlet NSTextField *proxyAddressField;
 @property (weak) IBOutlet NSTextField *proxyPortField;
 
+//subscribe fields
+@property (weak) IBOutlet NSTableView *subscribeTable;
+@property (weak) IBOutlet NSTextField *remarkTF;
+@property (weak) IBOutlet NSTextField *urlTF;
+@property (weak) IBOutlet NSTextField *updateDateTF;
+
 //cus config file fields
 @property (weak) IBOutlet NSTableView *cusProfileTable;
 @property (weak) IBOutlet NSTextField *checkLabel;
@@ -82,6 +90,7 @@
 @property (nonatomic) NSString* dnsString;
 @property (nonatomic) NSMutableArray *profiles;
 @property (nonatomic) NSMutableArray *cusProfiles;
-
+@property (nonatomic) NSMutableArray<SubscribeServer*>* subscribeServers;
+@property (nonatomic) NSInteger selectedSubscribeServerIndex;
 
 @end

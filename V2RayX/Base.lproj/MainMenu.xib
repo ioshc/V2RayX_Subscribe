@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14109" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14313.18" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14109"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14313.18"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -728,10 +728,16 @@
                         <action selector="showConfigWindow:" target="Voe-Tx-rLC" id="jVU-tA-mPz"/>
                     </connections>
                 </menuItem>
-                <menuItem title="View log" id="5Vg-qU-2V2">
+                <menuItem title="Ping Server" id="5Vg-qU-2V2">
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <connections>
-                        <action selector="viewLog:" target="Voe-Tx-rLC" id="6j0-df-F3G"/>
+                        <action selector="pingServer:" target="Voe-Tx-rLC" id="gO8-pM-vZa"/>
+                    </connections>
+                </menuItem>
+                <menuItem title="View log" id="QYR-rv-Nlx">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="viewLog:" target="Voe-Tx-rLC" id="nai-MB-a57"/>
                     </connections>
                 </menuItem>
                 <menuItem title="View current config.json" id="C53-wG-wMg">

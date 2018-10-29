@@ -37,6 +37,7 @@ static AppDelegate *appDelegate;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     profiles = [[NSMutableArray alloc] init];
+    subscribeServers = [[NSMutableArray alloc] init];
     cusProfiles = [[NSMutableArray alloc] init];
     [self readDefaults];
     v2rayJSONconfig = [[NSData alloc] init];
@@ -154,7 +155,14 @@ static AppDelegate *appDelegate;
     for (ServerProfile* p in profiles) {
         [profilesArray addObject:[p outboundProfile]];
     }
-    NSDictionary *settings =@{
+    NSMutableArray* subscribesArray = [[NSMutableArray alloc] init];
+    for (SubscribeServer* s in subscribeServers) {
+        NSDictionary *dict = [s dict];
+        if (dict) {
+            [subscribesArray addObject:dict];
+        }
+    }
+    NSDictionary *settings = @{
       @"logLevel": logLevel,
       @"proxyState": @(proxyState),
       @"proxyMode": @(proxyMode),
@@ -166,6 +174,7 @@ static AppDelegate *appDelegate;
       @"dnsString": dnsString,
       @"profiles":profilesArray,
       @"cusProfiles": cusProfiles,
+      @"subscribeServers": subscribesArray,
       @"selectedCusServerIndex": @(selectedCusServerIndex),
       @"useCusProfile": @(useCusProfile),
       @"useMultipleServer": @(useMultipleServer),
@@ -274,6 +283,16 @@ static AppDelegate *appDelegate;
             [writePacAlert setMessageText:[NSString stringWithFormat:@"%@ is not writable!", pacPath]];
             [writePacAlert runModal];
         }
+    }
+}
+
+- (IBAction)pingServer:(id)sender {
+    if (!useCusProfile) {
+        [[NSWorkspace sharedWorkspace] openFile:logDirPath];
+    } else {
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert setMessageText:[NSString stringWithFormat:@"Check %@.", cusProfiles[selectedCusServerIndex]]];
+        [alert runModal];
     }
 }
 
@@ -497,6 +516,15 @@ static AppDelegate *appDelegate;
         }
     } else {
         selectedCusServerIndex = -1;
+    }
+    [subscribeServers removeAllObjects];
+    if ([[defaults objectForKey:@"subscribeServers"] isKindOfClass:[NSArray class]] && [[defaults objectForKey:@"subscribeServers"] count] > 0) {
+        for (NSDictionary* aSubscribe in [defaults objectForKey:@"subscribeServers"]) {
+            SubscribeServer *server = [[SubscribeServer alloc] initWithDict:aSubscribe];
+            if (server) {
+                [subscribeServers addObject:server];
+            }
+        }
     }
 }
 
@@ -810,6 +838,7 @@ int runCommandLine(NSString* launchPath, NSArray* arguments) {
 @synthesize dnsString;
 @synthesize profiles;
 @synthesize logLevel;
+@synthesize subscribeServers;
 @synthesize cusProfiles;
 @synthesize useCusProfile;
 @synthesize selectedCusServerIndex;

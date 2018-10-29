@@ -39,4 +39,6 @@ typedef enum NetWorkType : NSUInteger {
 @property (nonatomic) NSString* sendThrough;
 @property (nonatomic) NSDictionary* streamSettings; // except network type.
 @property (nonatomic) NSDictionary* muxSettings;
+@property (nonatomic) NSString* subscribeServerURL;
+
 @end

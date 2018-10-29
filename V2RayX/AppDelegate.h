@@ -61,6 +61,7 @@ int runCommandLine(NSString* launchPath, NSArray* arguments);
 @property NSInteger selectedCusServerIndex;
 @property NSString* dnsString;
 @property NSMutableArray *profiles;
+@property NSMutableArray *subscribeServers;
 @property NSMutableArray *cusProfiles;
 @property NSString* logLevel;
 @property BOOL useMultipleServer;

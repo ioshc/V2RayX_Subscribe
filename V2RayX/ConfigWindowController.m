@@ -9,7 +9,7 @@
 #import "AppDelegate.h"
 #import "MutableDeepCopying.h"
 
-@interface ConfigWindowController () 
+@interface ConfigWindowController () <NSTextFieldDelegate>
 
 @end
 
@@ -30,6 +30,10 @@
     _profiles = [[NSMutableArray alloc] init];
     for (ServerProfile *p in appDelegate.profiles) {
         [_profiles addObject:[p deepCopy]];
+    }
+    _subscribeServers = [[NSMutableArray alloc] init];
+    for (SubscribeServer *server in appDelegate.subscribeServers) {
+        [_subscribeServers addObject:server];
     }
     _cusProfiles = [[NSMutableArray alloc] init];
     for (NSString* p in appDelegate.cusProfiles) {
@@ -62,6 +66,9 @@
     if (tableView == _profileTable) {
         return [_profiles count];
     }
+    if (tableView == _subscribeTable) {
+        return [_subscribeServers count];
+    }
     if (tableView == _cusProfileTable) {
         return [_cusProfiles count];
     }
@@ -69,8 +76,8 @@
 }
 
 - (void)tableView:(NSTableView *)tableView setObjectValue:(id)object forTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row {
-    if (tableView == _cusProfileTable) {
-        [_cusProfiles setObject:object atIndexedSubscript:row];
+    if (tableView == _subscribeTable) {
+        [_subscribeServers setObject:object atIndexedSubscript:row];
     }
 }
 
@@ -79,6 +86,14 @@
         if ([_profiles count] > 0) {
             ServerProfile* p = [_profiles objectAtIndex:row];
             return [[p remark] length] > 0 ? [p remark] : [NSString stringWithFormat:@"%@:%ld", [p address], [p port]];
+        } else {
+            return nil;
+        }
+    }
+    if (tableView == _subscribeTable) {
+        if ([_subscribeServers count] > 0) {
+            SubscribeServer *server = _subscribeServers[row];
+            return server.remark;
         } else {
             return nil;
         }
@@ -100,12 +115,16 @@
             [self setSelectedProfile:_profiles[_selectedServerIndex]];
         }
     }
+    if ([notification object] == _subscribeTable) {
+        if ([_subscribeServers count] > 0) {
+            [self setSelectedSubscribeServerIndex:[_subscribeTable selectedRow]];
+        }
+    }
     if ([notification object] == _cusProfileTable) {
         if ([_cusProfiles count] > 0) {
             [self setSelectedCusServerIndex:[_cusProfileTable selectedRow]];
         }
     }
-    
 }
 
 - (IBAction)chooseNetwork:(NSPopUpButton *)sender {
@@ -177,11 +196,193 @@
     appDelegate.shareOverLan = self.shareOverLan;
     appDelegate.dnsString = dnsStr;
     appDelegate.profiles = self.profiles;
+    appDelegate.subscribeServers = self.subscribeServers;
     appDelegate.cusProfiles = self.cusProfiles;
     
     [appDelegate configurationDidChange];
     [[self window] close];
 }
+
+#pragma mark - NSTextFieldDelegate
+
+- (void)controlTextDidChange:(NSNotification *)obj {
+
+    NSTextField *tf = obj.object;
+
+    if (tf == _remarkTF) {
+        SubscribeServer *server = _subscribeServers[_selectedSubscribeServerIndex];
+        server.remark = tf.stringValue;
+        [_subscribeTable reloadData];
+        return;
+    }
+    if (tf == _urlTF) {
+        SubscribeServer *server = _subscribeServers[_selectedSubscribeServerIndex];
+        server.url = tf.stringValue;
+        [_subscribeTable reloadData];
+        return;
+    }
+}
+
+#pragma mark - Subscribe
+
+- (void)setSelectedSubscribeServerIndex:(NSInteger)selectedSubscribeServerIndex {
+    _selectedSubscribeServerIndex = selectedSubscribeServerIndex;
+
+    if (selectedSubscribeServerIndex == -1) {
+        _remarkTF.stringValue = @"";
+        _remarkTF.enabled = NO;
+        [_remarkTF resignFirstResponder];
+        _urlTF.stringValue = @"";
+        _urlTF.enabled = NO;
+        [_urlTF resignFirstResponder];
+        _updateDateTF.stringValue = @"none";
+    } else {
+        SubscribeServer *server = _subscribeServers[selectedSubscribeServerIndex];
+        _remarkTF.stringValue = server.remark;
+        _remarkTF.enabled = YES;
+        _urlTF.stringValue = server.url;
+        _urlTF.enabled = YES;
+        if (server.url.length < 10) {
+            [_urlTF becomeFirstResponder];
+        }
+
+        if (server.updatedDate) {
+            _updateDateTF.stringValue = [self formatedStringWithDate:server.updatedDate];
+        } else {
+            _updateDateTF.stringValue = @"none";
+        }
+    }
+}
+
+- (IBAction)addRemoveSubscribe:(NSSegmentedControl *)sender {
+    if ([sender selectedSegment] == 0) {
+
+        SubscribeServer *server = [[SubscribeServer alloc] init];
+        server.remark = @"remark";
+        server.url = @"https://";
+        server.updatedDate = [NSDate date];
+
+        [_subscribeServers addObject:server];
+        [_subscribeTable reloadData];
+        [_subscribeTable selectRowIndexes:[NSIndexSet indexSetWithIndex:[_subscribeServers count] -1] byExtendingSelection:NO];
+        [_subscribeTable setFocusedColumn:[_subscribeServers count] - 1];
+    } else if ([sender selectedSegment] == 1 && [_subscribeServers count] > 0) {
+        NSInteger originalSelected = [_subscribeTable selectedRow];
+        [_subscribeServers removeObjectAtIndex:originalSelected];
+        if ([_subscribeServers count] > 0) {
+            if (originalSelected == [_subscribeServers count]) {
+                [self setSelectedSubscribeServerIndex:[_subscribeServers count] - 1];
+            }
+            [_subscribeTable selectRowIndexes:[NSIndexSet indexSetWithIndex:_selectedSubscribeServerIndex] byExtendingSelection:NO];
+        } else {
+            [self setSelectedSubscribeServerIndex:-1];
+        }
+        [_subscribeTable reloadData];
+    }
+}
+
+- (IBAction)showSubscribeWindow:(NSButton *)sender {
+    if (_subscribeWindow == nil) {
+        [[NSBundle mainBundle] loadNibNamed:@"subscribeWindow" owner:self topLevelObjects:nil];
+    }
+    //show sheet
+    [[self window] beginSheet:_subscribeWindow completionHandler:^(NSModalResponse returnCode) {
+    }];
+
+    //select default subscribe server
+    if (_subscribeServers.count > 0) {
+        [self setSelectedSubscribeServerIndex:0];
+    } else {
+        [self setSelectedSubscribeServerIndex:-1];
+    }
+}
+
+- (IBAction)updateSubscribeServer:(NSButton *)sender {
+
+    if (_selectedSubscribeServerIndex == -1) {
+        return;
+    }
+
+    SubscribeServer *server = _subscribeServers[_selectedSubscribeServerIndex];
+
+    NSURL *url = [NSURL URLWithString:server.url];
+    if (!url) {
+        [self showAlert:@"invalid url !!!"];
+        return;
+    }
+
+    NSData *data = [NSData dataWithContentsOfURL:url];
+    if (!data) {
+        [self showAlert:@"none response from subscribe server !!!"];
+        return;
+    }
+
+    NSData *decodedData = [[NSData alloc] initWithBase64EncodedData:data
+                                                            options:NSDataBase64DecodingIgnoreUnknownCharacters];
+    if (!decodedData) {
+        [self showAlert:@"invalid subscribe server configuration !!!"];
+        return;
+    }
+
+    NSString *decodeStr = [[NSString alloc] initWithData:decodedData
+                                                encoding:NSUTF8StringEncoding];
+    NSArray *servers = [decodeStr componentsSeparatedByString:@"\n"];
+
+    //remove old ones
+    if (servers.count > 0) {
+        NSMutableArray *oldServers = [NSMutableArray array];
+        [_profiles enumerateObjectsUsingBlock:^(ServerProfile *obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            if ([obj.subscribeServerURL isEqualToString:server.url]) {
+                [oldServers addObject:obj];
+            }
+        }];
+        [_profiles removeObjectsInArray:oldServers];
+        [_profileTable reloadData];
+    }
+
+    [servers enumerateObjectsUsingBlock:^(NSString *obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        NSString *trimedStr = [obj stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+        if (trimedStr.length > 10 && [trimedStr containsString:@"vmess://"]) {
+            ServerProfile *newProfile = [self extractServerFromVmessURI:trimedStr];
+            newProfile.subscribeServerURL = server.url;
+            if (newProfile) {
+                [self.profiles addObject:newProfile];
+                [self.profileTable reloadData];
+                [self.profileTable selectRowIndexes:[NSIndexSet indexSetWithIndex:([self.profiles count] - 1)]
+                               byExtendingSelection:NO];
+            }
+       }
+    }];
+
+    //update server info
+    server.updatedDate = [NSDate date];
+    _updateDateTF.stringValue = [self formatedStringWithDate:server.updatedDate];
+
+    if (!decodedData) {
+        [self showAlert:@"Updated !!!"];
+        return;
+    }
+}
+
+- (NSString *)formatedStringWithDate:(NSDate *)date {
+
+    if (!date) {
+        return nil;
+    }
+
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    dateFormatter.locale = [NSLocale currentLocale];
+    dateFormatter.dateFormat = @"YYYY-MM-dd HH:mm:ss";
+
+    return [dateFormatter stringFromDate:date];
+}
+
+- (IBAction)finishSubscribeWindow:(NSButton *)sender {
+    [[self window] endSheet:_subscribeWindow];
+}
+
+#pragma mark - CusProfile
 
 - (IBAction)addRemoveCusProfile:(NSSegmentedControl *)sender {
     if ([sender selectedSegment] == 0) {
@@ -204,7 +405,6 @@
         [_cusProfileTable reloadData];
     }
 }
-
 
 - (IBAction)showCusConfigWindow:(NSButton *)sender {
     if (_cusConfigWindow == nil) {
@@ -495,80 +695,169 @@
 - (IBAction)importFromQRCodeV2rayNV2:(id)sender {
     /* https://github.com/2dust/v2rayN/wiki/分享链接格式说明(ver-2) */
     NSString* inputStr = [[self input:@"Please input the server info. Format: vmess://" defaultValue:@""] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if ([inputStr length] == 0) {
-        return;
+
+    ServerProfile *newProfile = [self extractServerFromVmessURI:inputStr];
+    if (newProfile) {
+        [_profiles addObject:newProfile];
+        [_profileTable reloadData];
+        [_profileTable selectRowIndexes:[NSIndexSet indexSetWithIndex:([_profiles count] - 1)] byExtendingSelection:NO];
     }
-    if ([inputStr length] < 9 || ![[[inputStr substringToIndex:8] lowercaseString] isEqualToString:@"vmess://"]) {
+}
+
+- (ServerProfile *)extractServerFromVmessURI:(NSString*)uri {
+
+    if ([uri length] == 0) {
+        return nil;
+    }
+    if ([uri length] < 9 || ![[[uri substringToIndex:8] lowercaseString] isEqualToString:@"vmess://"]) {
         [self showAlert:@"Not a vmess:// link!"];
-        return;
+        return nil;
     }
-    // https://stackoverflow.com/questions/19088231/base64-decoding-in-ios-7
-    NSData *decodedData = [[NSData alloc] initWithBase64EncodedString:[inputStr substringFromIndex:8] options:0];
-    NSError* jsonParseError;
-    NSDictionary *sharedServer = [NSJSONSerialization JSONObjectWithData:decodedData options:0 error:&jsonParseError];
-    if (jsonParseError) {
-        [self showAlert:@"Not va valid link!"];
-        return;
-    }
-    if (![sharedServer objectForKey:@"v"] || [sharedServer[@"v"] isNotEqualTo:@"2"]) {
-        [self showAlert:@"Unknown format or Unknown link version!"];
-        return;
-    }
-    ServerProfile* newProfile = [[ServerProfile alloc] init];
-    newProfile.remark = nilCoalescing([sharedServer objectForKey:@"ps"], @"imported From QR");
-    newProfile.address = nilCoalescing([sharedServer objectForKey:@"add"], @"");
-    newProfile.port = [nilCoalescing([sharedServer objectForKey:@"port"], @0) intValue];
-    newProfile.userId = nilCoalescing([sharedServer objectForKey:@"id"], newProfile.userId);
-    newProfile.alterId = [nilCoalescing([sharedServer objectForKey:@"aid"], @0) intValue];
-    NSDictionary *netWorkDict = @{@"tcp": @0, @"kcp": @1, @"ws":@2, @"h2":@3 };
-    if ([sharedServer objectForKey:@"net"] && [netWorkDict objectForKey:[sharedServer objectForKey:@"net"]]) {
-        newProfile.network = [netWorkDict[sharedServer[@"net"]] intValue];
-    }
-    NSMutableDictionary* streamSettings = [newProfile.streamSettings mutableDeepCopy];
-    switch (newProfile.network) {
-        case tcp:
-            if (![sharedServer objectForKey:@"type"] || !([sharedServer[@"type"] isEqualToString:@"none"] || [sharedServer[@"type"] isEqualToString:@"http"])) {
-                break;
-            }
-            streamSettings[@"tcpSettings"][@"header"][@"type"] = sharedServer[@"type"];
-            if ([streamSettings[@"tcpSettings"][@"header"][@"type"] isEqualToString:@"http"]) {
-                if ([sharedServer objectForKey:@"host"]) {
-                    streamSettings[@"tcpSettings"][@"header"][@"host"] = [sharedServer[@"host"] componentsSeparatedByString:@","];
+
+    //all info had been base64 encaoded
+    if (![uri containsString:@"?"]) {
+        // https://stackoverflow.com/questions/19088231/base64-decoding-in-ios-7
+        NSData *decodedData = [[NSData alloc] initWithBase64EncodedString:[uri substringFromIndex:8] options:0];
+        NSError* jsonParseError;
+        NSDictionary *sharedServer = [NSJSONSerialization JSONObjectWithData:decodedData options:0 error:&jsonParseError];
+        if (jsonParseError) {
+            [self showAlert:@"Not va valid link!"];
+            return nil;
+        }
+        if (![sharedServer objectForKey:@"v"] || [sharedServer[@"v"] isNotEqualTo:@"2"]) {
+            [self showAlert:@"Unknown format or Unknown link version!"];
+            return nil;
+        }
+        ServerProfile* newProfile = [[ServerProfile alloc] init];
+        newProfile.remark = nilCoalescing([sharedServer objectForKey:@"ps"], @"imported From QR");
+        newProfile.address = nilCoalescing([sharedServer objectForKey:@"add"], @"");
+        newProfile.port = [nilCoalescing([sharedServer objectForKey:@"port"], @0) intValue];
+        newProfile.userId = nilCoalescing([sharedServer objectForKey:@"id"], newProfile.userId);
+        newProfile.alterId = [nilCoalescing([sharedServer objectForKey:@"aid"], @0) intValue];
+        NSDictionary *netWorkDict = @{@"tcp": @0, @"kcp": @1, @"ws":@2, @"h2":@3 };
+        if ([sharedServer objectForKey:@"net"] && [netWorkDict objectForKey:[sharedServer objectForKey:@"net"]]) {
+            newProfile.network = [netWorkDict[sharedServer[@"net"]] intValue];
+        }
+        NSMutableDictionary* streamSettings = [newProfile.streamSettings mutableDeepCopy];
+        switch (newProfile.network) {
+            case tcp:
+                if (![sharedServer objectForKey:@"type"] || !([sharedServer[@"type"] isEqualToString:@"none"] || [sharedServer[@"type"] isEqualToString:@"http"])) {
+                    break;
                 }
-            }
-            break;
-        case kcp:
-            if (![sharedServer objectForKey:@"type"]) {
+                streamSettings[@"tcpSettings"][@"header"][@"type"] = sharedServer[@"type"];
+                if ([streamSettings[@"tcpSettings"][@"header"][@"type"] isEqualToString:@"http"]) {
+                    if ([sharedServer objectForKey:@"host"]) {
+                        streamSettings[@"tcpSettings"][@"header"][@"host"] = [sharedServer[@"host"] componentsSeparatedByString:@","];
+                    }
+                }
                 break;
-            }
-            if (![@{@"none": @0, @"srtp": @1, @"utp": @2, @"wechat-video":@3, @"dtls":@4, @"wireguard":@5} objectForKey:sharedServer[@"type"]]) {
+            case kcp:
+                if (![sharedServer objectForKey:@"type"]) {
+                    break;
+                }
+                if (![@{@"none": @0, @"srtp": @1, @"utp": @2, @"wechat-video":@3, @"dtls":@4, @"wireguard":@5} objectForKey:sharedServer[@"type"]]) {
+                    break;
+                }
+                streamSettings[@"kcpSettings"][@"header"][@"type"] = sharedServer[@"type"];
                 break;
-            }
-            streamSettings[@"kcpSettings"][@"header"][@"type"] = sharedServer[@"type"];
-            break;
-        case ws:
-            streamSettings[@"wsSettings"][@"path"] = nilCoalescing([sharedServer objectForKey:@"path"], @"");
-            streamSettings[@"wsSettings"][@"headers"][@"Host"] = nilCoalescing([sharedServer objectForKey:@"host"], @"");
-            break;
-        case http:
-            streamSettings[@"httpSettings"][@"path"] = nilCoalescing([sharedServer objectForKey:@"path"], @"");
-            if (![sharedServer objectForKey:@"host"]) {
+            case ws:
+                streamSettings[@"wsSettings"][@"path"] = nilCoalescing([sharedServer objectForKey:@"path"], @"");
+                streamSettings[@"wsSettings"][@"headers"][@"Host"] = nilCoalescing([sharedServer objectForKey:@"host"], @"");
                 break;
-            };
-            if ([[sharedServer objectForKey:@"host"] length] > 0) {
-                streamSettings[@"httpSettings"][@"host"] = [[sharedServer objectForKey:@"host"] componentsSeparatedByString:@","];
-            }
-            break;
-        default:
-            break;
+            case http:
+                streamSettings[@"httpSettings"][@"path"] = nilCoalescing([sharedServer objectForKey:@"path"], @"");
+                if (![sharedServer objectForKey:@"host"]) {
+                    break;
+                };
+                if ([[sharedServer objectForKey:@"host"] length] > 0) {
+                    streamSettings[@"httpSettings"][@"host"] = [[sharedServer objectForKey:@"host"] componentsSeparatedByString:@","];
+                }
+                break;
+            default:
+                break;
+        }
+        if ([sharedServer objectForKey:@"tls"] && [sharedServer[@"tls"] isEqualToString:@"tls"]) {
+            streamSettings[@"security"] = @"tls";
+        }
+
+        return newProfile;
     }
-    if ([sharedServer objectForKey:@"tls"] && [sharedServer[@"tls"] isEqualToString:@"tls"]) {
-        streamSettings[@"security"] = @"tls";
+
+    //只有服务器信息BASE64编码，配置参数未编码
+    NSArray *tmpArray = [uri componentsSeparatedByString:@"?"];
+    NSString *serverStr = [tmpArray firstObject];
+    NSData *decodedData = [[NSData alloc] initWithBase64EncodedString:[serverStr substringFromIndex:8] options:NSDataBase64DecodingIgnoreUnknownCharacters];
+
+    if (!decodedData) {
+        [self showAlert:@"Not va valid link!"];
+        return nil;
     }
+    serverStr = [[NSString alloc] initWithData:decodedData encoding:NSUTF8StringEncoding];
+    if (serverStr.length == 0) {
+        [self showAlert:@"link should encode with UTF8!"];
+        return nil;
+    }
+    NSArray *serverInfo = [serverStr componentsSeparatedByString:@":"];
+
+    //server info
+    NSString *security = [serverInfo firstObject];
+    NSArray *tmpArray2 = [serverInfo[1] componentsSeparatedByString:@"@"];
+    NSString *userId = [tmpArray2 firstObject];
+    NSString *address = [tmpArray2 lastObject];
+    NSString *port = [serverInfo lastObject];
+
+    NSDictionary *securityDict = @{@"aes-128-cfb": @0,
+                                   @"aes-128-gcm": @1,
+                                   @"chacha20-poly1305":@2,
+                                   @"auto":@2,
+                                   @"none":@3};
+
+    ServerProfile* newProfile = [[ServerProfile alloc] init];
+    newProfile.address = nilCoalescing(address, @"");
+    newProfile.port = [nilCoalescing(port, @"0") intValue];
+    newProfile.userId = nilCoalescing(userId, newProfile.userId);
+    newProfile.security = [securityDict[security] intValue];
+
+    //server param
+    NSDictionary *netWorkDict = @{@"tcp": @0, @"kcp": @1, @"ws":@2, @"websocket":@2, @"h2":@3 };
+    NSMutableDictionary* streamSettings = [newProfile.streamSettings mutableDeepCopy];
+
+    NSArray *params = [[tmpArray lastObject] componentsSeparatedByString:@"&"];
+    [params enumerateObjectsUsingBlock:^(NSString *param, NSUInteger idx, BOOL * _Nonnull stop) {
+        NSArray *map = [param componentsSeparatedByString:@"="];
+        NSString *key = [[map firstObject] lowercaseString];
+        NSString *value = [map lastObject];
+
+        if ([key isEqualToString:@"network"]) {
+            newProfile.network = [netWorkDict[value] intValue];
+            return;
+        }
+
+        if ([key isEqualToString:@"remark"]) {
+            newProfile.remark = [value stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+            return ;
+        }
+
+        if ([key isEqualToString:@"aid"]) {
+            newProfile.alterId = [value intValue];
+            return ;
+        }
+
+        if ([key isEqualToString:@"tls"] && [value intValue] == 1) {
+            streamSettings[@"security"] = @"tls";
+            return ;
+        }
+
+        if ([key isEqualToString:@"allowinsecure"] && [value intValue] == 1) {
+            streamSettings[@"tlsSettings"] = @{@"serverName":@"",
+                                               @"allowInsecure":[NSNumber numberWithBool:YES]};
+            return ;
+        }
+    }];
+
     newProfile.streamSettings = streamSettings;
-    [_profiles addObject:newProfile];
-    [_profileTable reloadData];
-    [_profileTable selectRowIndexes:[NSIndexSet indexSetWithIndex:([_profiles count] - 1)] byExtendingSelection:NO];
+
+    return newProfile;
 }
 
 - (IBAction)importFromConfigJson:(id)sender {
